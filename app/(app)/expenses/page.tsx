@@ -58,6 +58,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showSettleUp, setShowSettleUp] = useState(false);
 
   useEffect(() => {
@@ -178,13 +179,15 @@ export default function ExpensesPage() {
     <div className="min-h-screen bg-rhine-bg text-slate-100 relative pb-24">
       <div className="fixed inset-0 bg-[radial-gradient(circle,rgba(197,160,89,0.1)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-30 z-0"></div>
 
-      {showAddModal && (
+      {(showAddModal || editingExpense) && (
         <AddExpenseModal
           tripId={selectedTrip.id}
           members={members}
-          itineraryItems={unsyncedItems}
-          onClose={() => setShowAddModal(false)}
+          itineraryItems={editingExpense ? itineraryItems : unsyncedItems}
+          onClose={() => { setShowAddModal(false); setEditingExpense(null); }}
           onSaved={refreshExpenses}
+          onDeleted={refreshExpenses}
+          editExpense={editingExpense}
         />
       )}
 
@@ -274,37 +277,47 @@ export default function ExpensesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
                 >
-                  <GlassCard className="p-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white font-display truncate">{expense.title}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {expense.event_time ? format(new Date(expense.event_time), 'MMM d, HH:mm') : 'No time'}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            Paid by {(expense.paid_by_profile as any)?.username || 'Unknown'}
-                          </span>
-                        </div>
-                        {expense.expense_shares && expense.expense_shares.length > 0 && (
-                          <div className="flex gap-1 mt-1.5 flex-wrap">
-                            {expense.expense_shares.map(share => {
-                              const member = members.find(m => m.user_id === share.user_id);
-                              return (
-                                <span key={share.user_id} className="text-[9px] px-1.5 py-0.5 bg-rhine-navy-light border border-slate-700 rounded-sm text-slate-400 font-mono">
-                                  {member?.username || '?'}: {expense.currency} {Number(share.amount).toFixed(2)}
-                                </span>
-                              );
-                            })}
+                  <button
+                    className="w-full text-left"
+                    onClick={() => setEditingExpense(expense)}
+                  >
+                    <GlassCard className="p-3 hover:border-rhine-gold/60 transition-colors cursor-pointer">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-white font-display truncate">{expense.title}</p>
+                            {expense.itinerary_item_id && (
+                              <span className="text-[8px] px-1 py-0.5 bg-rhine-gold/10 border border-rhine-gold/30 rounded-sm text-rhine-gold font-mono flex-shrink-0">LINKED</span>
+                            )}
                           </div>
-                        )}
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {expense.event_time ? format(new Date(expense.event_time), 'MMM d, HH:mm') : 'No time'}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              Paid by {(expense.paid_by_profile as any)?.username || 'Unknown'}
+                            </span>
+                          </div>
+                          {expense.expense_shares && expense.expense_shares.length > 0 && (
+                            <div className="flex gap-1 mt-1.5 flex-wrap">
+                              {expense.expense_shares.map(share => {
+                                const member = members.find(m => m.user_id === share.user_id);
+                                return (
+                                  <span key={share.user_id} className="text-[9px] px-1.5 py-0.5 bg-rhine-navy-light border border-slate-700 rounded-sm text-slate-400 font-mono">
+                                    {member?.username || '?'}: {expense.currency} {Number(share.amount).toFixed(2)}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <p className="text-lg font-bold text-rhine-gold font-mono">{Number(expense.total_amount).toFixed(2)}</p>
+                          <p className="text-[10px] text-rhine-gold/60 font-mono">{expense.currency}</p>
+                        </div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-lg font-bold text-rhine-gold font-mono">{Number(expense.total_amount).toFixed(2)}</p>
-                        <p className="text-[10px] text-rhine-gold/60 font-mono">{expense.currency}</p>
-                      </div>
-                    </div>
-                  </GlassCard>
+                    </GlassCard>
+                  </button>
                 </motion.div>
               ))}
             </div>
