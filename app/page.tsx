@@ -2,14 +2,25 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Wifi, ArrowRight } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/overview';
   const [explorerId, setExplorerId] = useState('');
   const [passcode, setPasscode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,9 +32,8 @@ export default function LoginPage() {
     setLoading(true);
 
     if (!isSupabaseConfigured || !supabase) {
-      // Fallback
       console.log("Simulating login");
-      setTimeout(() => router.push('/overview'), 1000);
+      setTimeout(() => router.push(redirectTo), 1000);
       return;
     }
 
@@ -36,7 +46,7 @@ export default function LoginPage() {
       if (signInError) throw signInError;
 
       if (data.user) {
-        router.push('/overview');
+        router.push(redirectTo);
       }
     } catch (err: any) {
       console.error("Login error:", err);
