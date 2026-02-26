@@ -66,10 +66,11 @@ function PlanContent() {
 
   if (tripError) {
     return (
-      <div className="min-h-screen bg-rhine-bg flex items-center justify-center text-slate-400">
-        <div className="text-center">
-          <h2 className="text-xl font-display text-red-400 mb-2">ACCESS DENIED</h2>
-          <p className="text-xs font-mono mb-6">{tripError}</p>
+      <div className="min-h-screen bg-rhine-bg flex items-center justify-center text-slate-400 p-6">
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-display text-red-400 mb-2">MISSION NOT FOUND</h2>
+          <p className="text-xs font-mono mb-2">{tripError}</p>
+          <p className="text-xs text-slate-500 mb-6">If someone shared this link with you, ask them to add your username in the Invite Explorers panel first.</p>
           <Link href="/trips" className="px-4 py-2 border border-rhine-gold text-rhine-gold text-xs font-bold uppercase tracking-wider hover:bg-rhine-gold hover:text-rhine-navy transition-all">
             Open Mission Log
           </Link>
