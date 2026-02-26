@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
-import { X, Loader2, Check } from 'lucide-react';
+import { X, Loader2, Check, Trash2 } from 'lucide-react';
 
 interface Member {
   user_id: string;
@@ -18,32 +18,67 @@ interface ItineraryItem {
   day_date: string;
 }
 
+interface EditExpense {
+  id: string;
+  itinerary_item_id: string | null;
+  title: string;
+  event_time: string;
+  currency: string;
+  total_amount: number;
+  paid_by: string;
+  split_type: string;
+  expense_shares?: { user_id: string; amount: number }[];
+}
+
 interface Props {
   tripId: string;
   members: Member[];
   itineraryItems: ItineraryItem[];
   onClose: () => void;
   onSaved: () => void;
+  onDeleted?: () => void;
+  editExpense?: EditExpense | null;
 }
 
 const CURRENCIES = ['CNY', 'USD', 'EUR', 'JPY', 'THB', 'GBP', 'KRW', 'SGD', 'HKD', 'TWD'];
 
-export default function AddExpenseModal({ tripId, members, itineraryItems, onClose, onSaved }: Props) {
+export default function AddExpenseModal({ tripId, members, itineraryItems, onClose, onSaved, onDeleted, editExpense }: Props) {
   const { user } = useAuth();
+  const isEditing = !!editExpense;
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [linkedItemId, setLinkedItemId] = useState<string>('');
-  const [title, setTitle] = useState('');
-  const [eventTime, setEventTime] = useState('');
-  const [currency, setCurrency] = useState('CNY');
-  const [totalAmount, setTotalAmount] = useState('');
-  const [paidBy, setPaidBy] = useState(user?.id || '');
-  const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
-  const [selectedParticipants, setSelectedParticipants] = useState<Set<string>>(
-    new Set(members.map(m => m.user_id))
+  const [linkedItemId, setLinkedItemId] = useState<string>(editExpense?.itinerary_item_id || '');
+  const [title, setTitle] = useState(editExpense?.title || '');
+  const [eventTime, setEventTime] = useState(
+    editExpense?.event_time ? editExpense.event_time.slice(0, 16) : ''
   );
-  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+  const [currency, setCurrency] = useState(editExpense?.currency || 'CNY');
+  const [totalAmount, setTotalAmount] = useState(
+    editExpense ? String(editExpense.total_amount) : ''
+  );
+  const [paidBy, setPaidBy] = useState(editExpense?.paid_by || user?.id || '');
+  const [splitType, setSplitType] = useState<'even' | 'custom'>(
+    (editExpense?.split_type as 'even' | 'custom') || 'even'
+  );
+  const [selectedParticipants, setSelectedParticipants] = useState<Set<string>>(() => {
+    if (editExpense?.expense_shares && editExpense.expense_shares.length > 0) {
+      return new Set(editExpense.expense_shares.map(s => s.user_id));
+    }
+    return new Set(members.map(m => m.user_id));
+  });
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>(() => {
+    if (editExpense?.expense_shares && editExpense.split_type === 'custom') {
+      const amounts: Record<string, string> = {};
+      editExpense.expense_shares.forEach(s => {
+        amounts[s.user_id] = String(s.amount);
+      });
+      return amounts;
+    }
+    return {};
+  });
 
   const handleLinkItem = (itemId: string) => {
     setLinkedItemId(itemId);
@@ -92,30 +127,51 @@ export default function AddExpenseModal({ tripId, members, itineraryItems, onClo
     setSaving(true);
     setError(null);
 
-    const { data: expense, error: insertError } = await supabase
-      .from('expenses')
-      .insert({
-        trip_id: tripId,
-        itinerary_item_id: linkedItemId || null,
-        title: title.trim(),
-        event_time: eventTime || null,
-        currency,
-        total_amount: amount,
-        paid_by: paidBy,
-        split_type: splitType,
-      })
-      .select()
-      .single();
+    const expenseData = {
+      trip_id: tripId,
+      itinerary_item_id: linkedItemId || null,
+      title: title.trim(),
+      event_time: eventTime || null,
+      currency,
+      total_amount: amount,
+      paid_by: paidBy,
+      split_type: splitType,
+    };
 
-    if (insertError || !expense) {
-      setError(insertError?.message || 'Failed to save expense');
-      setSaving(false);
-      return;
+    let expenseId: string;
+
+    if (isEditing) {
+      const { error: updateError } = await supabase
+        .from('expenses')
+        .update(expenseData)
+        .eq('id', editExpense!.id);
+
+      if (updateError) {
+        setError(updateError.message);
+        setSaving(false);
+        return;
+      }
+      expenseId = editExpense!.id;
+
+      await supabase.from('expense_shares').delete().eq('expense_id', expenseId);
+    } else {
+      const { data: expense, error: insertError } = await supabase
+        .from('expenses')
+        .insert(expenseData)
+        .select()
+        .single();
+
+      if (insertError || !expense) {
+        setError(insertError?.message || 'Failed to save expense');
+        setSaving(false);
+        return;
+      }
+      expenseId = expense.id;
     }
 
     const participantArray = Array.from(selectedParticipants);
     const shares = participantArray.map(uid => ({
-      expense_id: expense.id,
+      expense_id: expenseId,
       user_id: uid,
       amount: splitType === 'even'
         ? parseFloat((amount / participantArray.length).toFixed(2))
@@ -135,20 +191,44 @@ export default function AddExpenseModal({ tripId, members, itineraryItems, onClo
     onClose();
   };
 
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000);
+      return;
+    }
+    if (!supabase || !editExpense) return;
+
+    setDeleting(true);
+    const { error } = await supabase.from('expenses').delete().eq('id', editExpense.id);
+    if (error) {
+      setError('Failed to delete: ' + error.message);
+      setDeleting(false);
+      return;
+    }
+    setDeleting(false);
+    onDeleted?.();
+    onClose();
+  };
+
+  const allItineraryItems = isEditing && editExpense?.itinerary_item_id
+    ? [...itineraryItems, ...(itineraryItems.find(i => i.id === editExpense.itinerary_item_id) ? [] : [{ id: editExpense.itinerary_item_id, title: editExpense.title, start_time: '', day_date: '' }])]
+    : itineraryItems;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-md bg-rhine-navy border border-rhine-gold/50 rounded-t-lg sm:rounded-lg relative shadow-[0_0_30px_rgba(197,160,89,0.2)] max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-rhine-navy border-b border-rhine-gold/20 p-4 flex items-center justify-between z-10">
           <div>
-            <h3 className="text-lg font-bold font-display text-white">Add Expense</h3>
-            <p className="text-[10px] font-mono text-rhine-gold uppercase tracking-widest">Log Transaction</p>
+            <h3 className="text-lg font-bold font-display text-white">{isEditing ? 'Edit Expense' : 'Add Expense'}</h3>
+            <p className="text-[10px] font-mono text-rhine-gold uppercase tracking-widest">{isEditing ? 'Modify Transaction' : 'Log Transaction'}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1"><X size={20} /></button>
         </div>
 
         <div className="p-4 space-y-4">
           {/* Link to itinerary item */}
-          {itineraryItems.length > 0 && (
+          {allItineraryItems.length > 0 && (
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Link to Activity (Optional)</label>
               <select
@@ -157,7 +237,7 @@ export default function AddExpenseModal({ tripId, members, itineraryItems, onClo
                 className="w-full bg-rhine-navy-light border border-rhine-gold/30 rounded p-2 text-sm text-white focus:border-rhine-gold outline-none"
               >
                 <option value="">Manual entry</option>
-                {itineraryItems.map(item => (
+                {allItineraryItems.map(item => (
                   <option key={item.id} value={item.id}>{item.title}</option>
                 ))}
               </select>
@@ -312,14 +392,30 @@ export default function AddExpenseModal({ tripId, members, itineraryItems, onClo
             </div>
           )}
 
-          {/* Save button */}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full py-3 bg-rhine-gold text-rhine-navy font-bold uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2 rounded-sm shadow-[0_0_15px_rgba(197,160,89,0.3)] disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="animate-spin" size={18} /> : 'Log Expense'}
-          </button>
+          {/* Action buttons */}
+          <div className={`flex gap-3 ${isEditing ? '' : ''}`}>
+            {isEditing && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting || saving}
+                className={`py-3 px-4 font-bold uppercase tracking-widest flex items-center justify-center gap-2 rounded-sm border transition-all disabled:opacity-50 ${
+                  confirmDelete
+                    ? 'bg-red-500 text-white border-red-400 animate-pulse'
+                    : 'border-red-500/50 text-red-400 hover:bg-red-500/10'
+                }`}
+              >
+                <Trash2 size={16} />
+                {deleting ? '...' : confirmDelete ? 'Confirm' : ''}
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving || deleting}
+              className="flex-1 py-3 bg-rhine-gold text-rhine-navy font-bold uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2 rounded-sm shadow-[0_0_15px_rgba(197,160,89,0.3)] disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="animate-spin" size={18} /> : isEditing ? 'Update Expense' : 'Log Expense'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
