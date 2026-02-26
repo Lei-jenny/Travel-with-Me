@@ -25,29 +25,54 @@ function PlanContent() {
   const searchParams = useSearchParams();
   const tripId = searchParams.get('tripId');
   const [trip, setTrip] = useState<any>(null);
+  const [tripLoading, setTripLoading] = useState(!!tripId);
+  const [tripError, setTripError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     const client = supabase;
     if (tripId && isSupabaseConfigured && client) {
+      setTripLoading(true);
+      setTripError(null);
       const fetchTrip = async () => {
-        const { data } = await client
+        const { data, error } = await client
           .from('trips')
           .select('*')
           .eq('id', tripId)
           .single();
-        if (data) setTrip(data);
+        if (error || !data) {
+          setTripError('Mission not found or access denied.');
+        } else {
+          setTrip(data);
+        }
+        setTripLoading(false);
       };
       fetchTrip();
+    } else {
+      setTripLoading(false);
     }
   }, [tripId]);
 
-  if (tripId && !trip) {
+  if (tripLoading) {
     return (
       <div className="min-h-screen bg-rhine-bg flex items-center justify-center text-rhine-gold">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 border-2 border-rhine-gold border-t-transparent rounded-full animate-spin"></div>
           <p className="text-xs font-mono tracking-widest">RETRIEVING MISSION DATA...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (tripError) {
+    return (
+      <div className="min-h-screen bg-rhine-bg flex items-center justify-center text-slate-400">
+        <div className="text-center">
+          <h2 className="text-xl font-display text-red-400 mb-2">ACCESS DENIED</h2>
+          <p className="text-xs font-mono mb-6">{tripError}</p>
+          <Link href="/trips" className="px-4 py-2 border border-rhine-gold text-rhine-gold text-xs font-bold uppercase tracking-wider hover:bg-rhine-gold hover:text-rhine-navy transition-all">
+            Open Mission Log
+          </Link>
         </div>
       </div>
     );
