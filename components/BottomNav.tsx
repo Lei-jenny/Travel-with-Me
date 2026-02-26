@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Calendar, Map, MessageSquare, User, Plus } from 'lucide-react';
+import { Calendar, Map, Wallet, User, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -50,15 +50,15 @@ export default function BottomNav() {
 
         {/* Right Group */}
         <Link 
-          href="/chat"
+          href="/expenses"
           className={`flex flex-1 flex-col items-center justify-end gap-1.5 transition-all group ${
-            pathname === '/chat' ? 'text-rhine-gold' : 'text-slate-500 hover:text-rhine-gold'
+            pathname === '/expenses' ? 'text-rhine-gold' : 'text-slate-500 hover:text-rhine-gold'
           }`}
         >
           <div className="p-2">
-            <MessageSquare size={24} strokeWidth={pathname === '/chat' ? 2.5 : 2} />
+            <Wallet size={24} strokeWidth={pathname === '/expenses' ? 2.5 : 2} />
           </div>
-          <span className="text-[9px] font-display font-bold tracking-widest uppercase">Comm</span>
+          <span className="text-[9px] font-display font-bold tracking-widest uppercase">Ledger</span>
         </Link>
 
         <Link 
