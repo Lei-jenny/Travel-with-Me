@@ -1,0 +1,5 @@
+{
+  "name": "Travel With Me",
+  "description": "Collaborative travel itinerary planner with Rhine Lab aesthetic",
+  "requestFramePermissions": ["geolocation"]
+}

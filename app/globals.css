@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: var(--font-space), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-rajdhani), sans-serif;
+  --font-tech: var(--font-orbitron), monospace;
+  --font-serif: var(--font-cinzel), serif;
+  --font-mono: var(--font-mono), monospace;
+
+  --color-rhine-bg: #0B1026;
+  --color-rhine-panel: #141B35;
+  --color-rhine-gold: #Cfb568;
+  --color-rhine-gold-dim: #8A7745;
+  --color-rhine-blue: #2b4c7e;
+  --color-rhine-light: #e2e8f0;
+  --color-rhine-accent: #4FD1C5;
+  --color-rhine-navy: #0A1128;
+  --color-rhine-navy-light: #1C2A4A;
+
+  --animate-scan: scan 3s linear infinite;
+  --animate-spin-slow: spin 20s linear infinite;
+  --animate-spin-reverse: spin 30s linear infinite reverse;
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  @keyframes scan {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .tech-border {
+    position: relative;
+    clip-path: polygon(
+      10px 0, 100% 0, 
+      100% calc(100% - 10px), calc(100% - 10px) 100%, 
+      0 100%, 0 10px
+    );
+  }
+  
+  .tech-border::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 1px solid rgba(207, 181, 104, 0.3);
+    pointer-events: none;
+    clip-path: polygon(
+      10px 0, 100% 0, 
+      100% calc(100% - 10px), calc(100% - 10px) 100%, 
+      0 100%, 0 10px
+    );
+  }
+
+  .tech-corner-tl {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--color-rhine-gold);
+    border-left: 2px solid var(--color-rhine-gold);
+  }
+
+  .tech-corner-br {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid var(--color-rhine-gold);
+    border-right: 2px solid var(--color-rhine-gold);
+  }
+
+  .scan-line {
+    width: 100%;
+    height: 2px;
+    background: rgba(207, 181, 104, 0.5);
+    animation: scan 3s linear infinite;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .hex-btn {
+    clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+  }
+
+  .glass-panel {
+    background: rgba(20, 27, 45, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(198, 166, 100, 0.3);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+  }
+  .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+  }
+}
